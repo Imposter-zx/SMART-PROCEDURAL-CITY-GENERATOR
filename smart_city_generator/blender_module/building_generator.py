@@ -13,83 +13,71 @@ if current_dir not in sys.path:
 
 from material_system import get_style_palette, apply_random_material
 
-def create_building(location, dimensions, style, zone):
-    """
-    Procedurally generate a building mesh.
-    zone: downtown / residential / commercial / industrial
-    """
-    w, d, h = dimensions
+def create_building(center, size, style, zone):
+    """ Advanced building generator with zoning and styling """
+    w, d, h_target = size
     
-    # Zone-based height adjustments
+    # 1. Zone-Specific Scaling
     if zone == "downtown":
-        h = random.uniform(60, 150) # Skyscrapers
+        h = random.uniform(80, 220)
+        is_skyscraper = True
     elif zone == "commercial":
-        h = random.uniform(30, 70)
-    elif zone == "residential":
-        h = random.uniform(10, 25) # Houses
-    elif zone == "industrial":
-        w *= 1.5
-        d *= 1.5
-        h = random.uniform(15, 30)
-    
-    mesh = bpy.data.meshes.new(f"Bldg_{zone}")
+        h = random.uniform(30, 80)
+        is_skyscraper = False
+    else: # Residential / Secondary
+        h = random.uniform(10, 30)
+        is_skyscraper = False
+
+    mesh = bpy.data.meshes.new("Bldg")
     obj = bpy.data.objects.new("Building", mesh)
     bpy.context.collection.objects.link(obj)
-    obj.location = location
+    obj.location = (center[0], center[1], 0)
     
     bm = bmesh.new()
     
-    # 1. Base footprint
-    v1 = bm.verts.new((-w/2, -d/2, 0))
-    v2 = bm.verts.new((w/2, -d/2, 0))
-    v3 = bm.verts.new((w/2, d/2, 0))
-    v4 = bm.verts.new((-w/2, d/2, 0))
-    base_face = bm.faces.new((v1, v2, v3, v4))
+    # 2. Layered Architecture (Podiums & Steps)
+    current_h = 0
+    layers = 1 if not is_skyscraper else random.randint(2, 4)
+    layer_w, layer_d = w, d
     
-    # 2. Extrude Main Body
-    ret = bmesh.ops.extrude_discrete_faces(bm, faces=[base_face])
-    top_face = ret['faces'][0]
-    bmesh.ops.translate(bm, vec=(0, 0, h), verts=top_face.verts)
-    
-    # 3. Procedural Style logic
-    palette = get_style_palette(style)
-    
-    if style == "cyberpunk":
-        # Add a glowing middle section
-        if h > 40:
-            bmesh.ops.inset_region(bm, faces=[top_face], thickness=1.0, depth=0)
-            ret = bmesh.ops.extrude_discrete_faces(bm, faces=[top_face])
-            top_face = ret['faces'][0]
-            bmesh.ops.translate(bm, vec=(0, 0, h*0.2), verts=top_face.verts)
+    for i in range(layers):
+        layer_h = h / layers
+        # Create Layer Cube
+        bmesh.ops.create_cube(bm, size=1.0)
+        # Transform Layer
+        v_start = len(bm.verts) - 8
+        layer_verts = bm.verts[v_start:]
+        bmesh.ops.scale(bm, vec=(layer_w, layer_d, layer_h), verts=layer_verts)
+        bmesh.ops.translate(bm, vec=(0, 0, current_h + layer_h/2), verts=layer_verts)
         
-        # Add antenna for high buildings
-        if h > 80:
-            bmesh.ops.inset_region(bm, faces=[top_face], thickness=w*0.4, depth=0)
-            ret = bmesh.ops.extrude_discrete_faces(bm, faces=[top_face])
-            bmesh.ops.translate(bm, vec=(0, 0, 15), verts=ret['faces'][0].verts)
-
-    elif style == "medieval" or (zone == "residential" and style == "modern"):
-        # Simple pitched roof
-        verts = top_face.verts[:]
-        bmesh.ops.translate(bm, vec=(0, 0, 4.0), verts=[verts[0], verts[1]])
+        # Inset for next layer if skyscraper
+        if is_skyscraper and i < layers - 1:
+            layer_w *= 0.8
+            layer_d *= 0.8
         
-    elif style == "futuristic":
-        # Dramatic twist
-        bmesh.ops.rotate(bm, cent=top_face.calc_center_bounds(), matrix=mathutils.Matrix.Rotation(math.radians(30), 3, 'Z'), verts=top_face.verts)
-        # Inset and extrude again
-        bmesh.ops.inset_region(bm, faces=[top_face], thickness=w*0.1, depth=-1.0)
+        current_h += layer_h
 
-    # Finalize Mesh
+    # 3. Rooftop Equipment
+    if is_skyscraper:
+        # Antenna
+        if random.random() > 0.5:
+            bmesh.ops.create_cone(bm, cap_ends=True, segments=8, radius1=0.5, radius2=0, depth=15)
+            # Find the new verts and move them to top
+            bmesh.ops.translate(bm, vec=(0, 0, current_h + 7.5), verts=bm.verts[-9:])
+        # Helipad Circle (Simplified)
+        if random.random() > 0.8:
+            bmesh.ops.create_circle(bm, cap_ends=True, segments=16, radius=5)
+            bmesh.ops.translate(bm, vec=(0, 0, current_h + 0.1), verts=bm.verts[-17:])
+
     bm.to_mesh(mesh)
-    
-    # 4. Add Window Geometry (High Detail)
-    if h > 20:
-        create_window_grid(obj, h, w, d)
-
     bm.free()
     
-    # Apply Material based on palette
-    apply_random_material(obj, palette)
+    # 4. Detailing (Windows)
+    if h > 20:
+        create_window_grid(obj, h, w, d)
+    
+    # Apply Palette Material
+    apply_random_material(obj, style)
     
     return obj
 
@@ -103,9 +91,9 @@ def create_window_grid(obj, h, w, d):
     
     for f in faces_to_process:
         # Inset for a "frame" effect
-        # Simple subdivision approach for windows
-        # (This is a simplified version for performance)
-        res = bmesh.ops.inset_region(bm, faces=[f], thickness=0.5, depth=-0.2)
+        try:
+            res = bmesh.ops.inset_region(bm, faces=[f], thickness=0.4, depth=-0.1)
+        except: pass
         
     bm.to_mesh(obj.data)
     bm.free()
@@ -128,12 +116,11 @@ def generate_city_from_data(geometry_data, style):
         width = max(xs) - min(xs)
         depth = max(ys) - min(ys)
         
-        create_building((cx, cy, 0), (width, depth, 15), style, zone)
+        create_building((cx, cy, 0), (width, depth, 0), style, zone)
         
-    # Handle Parks (simplified scatter)
+    # Handle Parks
     parks = geometry_data.get("parks", [])
     for park in parks:
-        # Create a simple green plane for the park
         mesh = bpy.data.meshes.new("Park")
         obj = bpy.data.objects.new("Park", mesh)
         bpy.context.collection.objects.link(obj)
@@ -143,12 +130,11 @@ def generate_city_from_data(geometry_data, style):
         bm.to_mesh(mesh)
         bm.free()
         
-        # Green color
         mat = bpy.data.materials.new(name="ParkGrass")
         mat.diffuse_color = (0.1, 0.5, 0.1, 1.0)
         obj.data.materials.append(mat)
         
-        # Scatter Trees in park
+        # Scatter Trees
         cx = sum(p['x'] for p in park) / len(park)
         cy = sum(p['y'] for p in park) / len(park)
         for _ in range(10):
