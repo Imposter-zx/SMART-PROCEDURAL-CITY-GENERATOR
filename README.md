@@ -57,6 +57,6 @@ graph TD
 ---
 
 ## 🌟 Contributions
-Created with precision by **Antigravity** and developed for **Imposter-zx**. 
+Created  by **Imposter-zx**. 
 
 Distributed under the MIT License.
