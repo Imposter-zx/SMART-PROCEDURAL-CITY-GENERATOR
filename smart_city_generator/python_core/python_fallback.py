@@ -111,4 +111,45 @@ def generate_roads_fallback(size_str, style, density):
                     zone=zone
                 ))
 
-    return CityGeometry(roads=roads, lots=lots, parks=parks)
+    # Water / River Generation
+    water_polys = []
+    if style != "grid": # Grid cities might not have a river for simplicity
+        river_width = 150.0
+        river_points = []
+        # Create a winding river from left to right
+        for x in range(int(-size/2), int(size/2) + 1, 200):
+            offset = math.sin(x * 0.002) * 200.0
+            river_points.append((x, offset))
+        
+        # Create a thick polygon for the river
+        poly = []
+        for p in river_points:
+            poly.append(Point2D(x=p[0], y=p[1] - river_width/2))
+        for p in reversed(river_points):
+            poly.append(Point2D(x=p[0], y=p[1] + river_width/2))
+        
+        water_polys.append(poly)
+        
+        # Remove lots that intersect with the river
+        def is_in_river(pt):
+            for poly in water_polys:
+                # Simple bounding box check for the river winding
+                for i in range(len(river_points)-1):
+                    p1, p2 = river_points[i], river_points[i+1]
+                    if pt.x >= p1[0] and pt.x <= p2[0]:
+                        avg_y = (p1[1] + p2[1]) / 2
+                        if abs(pt.y - avg_y) < river_width/2 + 20:
+                            return True
+            return False
+            
+        lots = [l for l in lots if not any(is_in_river(p) for p in l.footprint)]
+        
+        # Identify bridges
+        for r in roads:
+            if is_in_river(r.start) or is_in_river(r.end):
+                r.type = "bridge"
+        
+        # Only remove roads that are completely submerged
+        roads = [r for r in roads if not (is_in_river(r.start) and is_in_river(r.end))]
+
+    return CityGeometry(roads=roads, lots=lots, parks=parks, water=water_polys)

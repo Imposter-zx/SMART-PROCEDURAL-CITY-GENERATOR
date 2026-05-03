@@ -44,3 +44,4 @@ class CityGeometry(BaseModel):
     roads: List[RoadSegment]
     lots: List[BuildingLot]
     parks: List[List[Point2D]]
+    water: List[List[Point2D]] = []

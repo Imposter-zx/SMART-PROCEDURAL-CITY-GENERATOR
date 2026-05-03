@@ -77,7 +77,8 @@ def create_building(center, size, style, zone):
         create_window_grid(obj, h, w, d)
     
     # Apply Palette Material
-    apply_random_material(obj, style)
+    palette = get_style_palette(style)
+    apply_random_material(obj, palette)
     
     return obj
 
@@ -144,6 +145,27 @@ def generate_city_from_data(geometry_data, style):
                 from street_generator import place_street_prop
                 place_street_prop("tree", (tx, ty, 0))
             except: pass
+
+    # Handle Water
+    waters = geometry_data.get("water", [])
+    for poly in waters:
+        mesh = bpy.data.meshes.new("Water")
+        obj = bpy.data.objects.new("WaterBody", mesh)
+        bpy.context.collection.objects.link(obj)
+        bm = bmesh.new()
+        w_verts = [bm.verts.new((p['x'], p['y'], -0.2)) for p in poly] # Slightly below ground
+        bm.faces.new(w_verts)
+        bm.to_mesh(mesh)
+        bm.free()
+        
+        mat = bpy.data.materials.new(name="WaterMat")
+        mat.use_nodes = True
+        bsdf = mat.node_tree.nodes.get("Principled BSDF")
+        if bsdf:
+            bsdf.inputs['Base Color'].default_value = (0.05, 0.2, 0.5, 1.0)
+            bsdf.inputs['Metallic'].default_value = 0.9
+            bsdf.inputs['Roughness'].default_value = 0.1
+        obj.data.materials.append(mat)
 
 if __name__ == "__main__":
     generate_city_from_data({}, "modern")
