@@ -1,21 +1,30 @@
-# Smart Procedural City Generator
+# ⚙️ Smart City Generator: Technical Core
 
-## Requirements
-- Python 3.9+
-- CMake 3.15+
-- C++17 compatible compiler (MSVC, GCC, Clang)
-- Blender 3.6+ (Added to system PATH so the `blender` command works globally)
+This directory contains the modular high-performance core of the Procedural City Generator. It is designed to be used as a standalone pipeline or integrated into larger simulations.
 
-## Setup Instructions
+---
 
-### 1. Install Python Dependencies
-Open a terminal in the project root and run:
+## 🛠️ Prerequisites
+
+Ensure your environment meets the following requirements:
+*   **Python:** 3.10+
+*   **C++ Compiler:** C++17 compatible (MSVC 2019+, GCC 9+, Clang 10+)
+*   **CMake:** 3.15+
+*   **Blender:** 4.2+ (Must be accessible via system `PATH`)
+
+---
+
+## 🚀 Installation & Setup
+
+### 1. Python Environment
+Install the necessary spatial and geometric processing libraries:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Build the C++ Engine (Pybind11)
-The Python core relies on the high-performance C++ engine. Compile it with CMake:
+### 2. Building the C++ Engine
+The core geometric logic is offloaded to a C++ engine via `pybind11` for maximum performance.
+
 ```bash
 cd engine
 mkdir build
@@ -24,21 +33,32 @@ cmake ..
 cmake --build . --config Release
 ```
 
-Once built, you need to copy the resulting compiled file (e.g., `smart_city_engine.cp311-win_amd64.pyd` on Windows or `.so` on Linux) into the `python_core` folder so Python can import it.
+**Post-Build Step:**
+Move the compiled binary (e.g., `.pyd` on Windows or `.so` on Linux) to the `python_core` directory:
 ```bash
-# On Windows (adjust depending on your python version/architecture)
+# Example for Windows
 copy Release\smart_city_engine*.pyd ..\..\python_core\
 ```
 
-### 3. Run the Generator
-Navigate to the `python_core` folder and execute the Python application.
-```bash
-cd ../../python_core
-python cli.py --size medium --style cyberpunk --density 0.8
-```
+---
 
-This will:
-1. Call Python to process inputs.
-2. Trigger the compiled C++ engine to generate the math geometry.
-3. Automatically launch Blender in the background to build the 3D scene.
-4. Export the resulting files to the `output/` directory.
+## 🎮 Execution Workflow
+
+The pipeline follows a **Process -> Optimize -> Synthesize** flow.
+
+1.  **Orchestration:** Navigate to `python_core` and run the CLI:
+    ```bash
+    python cli.py --size large --style futuristic --density 0.9
+    ```
+2.  **Synthesis:** The script will automatically trigger the C++ engine and launch Blender in a background/headless process to generate the 3D assets.
+3.  **Output:** Check the `output/` directory for generated `.blend` files, `.fbx` exports, and renders.
+
+---
+
+## 📂 Key Modules
+
+*   `engine/`: Source code for the pybind11 C++ geometry kernel.
+*   `python_core/`: CLI, API, and the "Engine Bridge".
+*   `blender_module/`: Procedural modeling scripts using Blender's `bpy` and `bmesh`.
+*   `docs/`: Deep-dive architectural documentation.
+

@@ -38,7 +38,14 @@ smart_city_generator/
    - **Materials:** Assigns realistic textures and shaders.
 6. **Rendering:** Configures environment lighting (HDRI/Sky Texture) and renders.
 
-## 4. Technologies
-- **Python**: `pydantic`, `numpy`
+## 4. GIS Integration (New)
+The system now supports real-world data injection via **OpenStreetMap (OSM)**:
+1.  **Extraction:** Python's `OSMNX` extracts road nodes and building footprints.
+2.  **Projection:** Spherical coordinates are projected into planar meters (UTM).
+3.  **Handoff:** The GIS data is fed into the C++ engine for parcel subdivision and geometric optimization.
+
+## 5. Technologies
+- **Python**: `pydantic`, `numpy`, `osmnx`, `geopandas`
 - **C++**: `pybind11` (for Python bindings)
 - **Blender**: `bpy` (Blender Python API), `bmesh`
+
